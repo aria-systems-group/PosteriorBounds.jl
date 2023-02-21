@@ -6,12 +6,12 @@ PosteriorGP = jl.seval("PosteriorBounds.PosteriorGP")
 SEKernel = jl.seval("PosteriorBounds.SEKernel")
 
 # GPyTorch Stand-Ins
-x = np.array([[1.0  1.5  2.0  0.5], [1.0  1.5  2.0  0.5]]) 
+x = np.array([[1.0,  1.5,  2.0,  0.5], [1.0,  1.5,  2.0,  0.5]]) 
 
-K_inv = np.array([[9.96315  -8.36825   3.31192  -4.9394],
-                  [-8.36825   9.96315  -4.9394    3.31192], 
-                  [3.31192  -4.9394    3.68006  -1.12941], 
-                  [-4.9394    3.31192  -1.12941   3.68006]])
+K_inv = np.array([[9.96315,  -8.36825,   3.31192,  -4.9394],
+                  [-8.36825,   9.96315,  -4.9394,    3.31192], 
+                  [3.31192,  -4.9394,    3.68006,  -1.12941], 
+                  [-4.9394,    3.31192,  -1.12941,   3.68006]])
 
 alpha = np.array([[1.8559087932502434],
  [-5.267947387565121],
@@ -33,6 +33,6 @@ theta_vec = np.ones(gp.dim) * 1 / (2*gp.kernel.ℓ2)
 theta_vecT = np.transpose(theta_vec)
 theta_vec_train_squared = np.zeros(gp.nobs)
 for i in range(0, gp.nobs):
-    theta_vec_train_squared[i] = theta_vecT * np.square(gp.x[:, i])
+    theta_vec_train_squared[i] = np.dot(theta_vecT, np.square(gp.x[:, i]))
 
 res = compute_μ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec)
