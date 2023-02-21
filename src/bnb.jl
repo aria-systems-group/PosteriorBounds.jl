@@ -8,7 +8,7 @@ function compute_μ_bounds_bnb_tmp(x, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_v
         size(x, 2),
         convert(Matrix, x),
         convert(Matrix, K_inv),
-        convert(Vector, alpha),
+        convert(Matrix, alpha),
         SEKernel(σ2, ℓ2)
     )
 
