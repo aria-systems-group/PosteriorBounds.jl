@@ -1,4 +1,19 @@
+"""
+Compute an bounds on the posterior mean value in an interval. Defaults to bounding the max value.
+"""
+function compute_μ_bounds_bnb_tmp(x, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=100, bound_epsilon=1e-2, max_flag=false, image_prealloc=nothing)
 
+    gp = PosteriorGP(
+        size(x, 1),
+        size(x, 2),
+        x,
+        K_inv,
+        alpha,
+        SEKernel(σ2, ℓ2)
+    )
+
+    return compute_μ_bounds_bnb(gp, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=max_iterations, bound_epsilon=bound_epsilon, max_flag=max_flag, image_prealloc=image_prealloc)
+end
 """
 Compute an bounds on the posterior mean value in an interval. Defaults to bounding the max value.
 """
