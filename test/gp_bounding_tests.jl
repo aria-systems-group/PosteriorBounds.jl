@@ -57,11 +57,8 @@ using Test
     x_t = gp.x[:,1]
     x_L = [0.3, 0.3]
     x_U = [0.5, 0.5]
-    theta_vec = ones(gp.dim) * 1 ./ (2*gp.kernel.ℓ2)
-    theta_vec_train_squared = zeros(gp.nobs);
-    for i = 1:gp.nobs
-        @views theta_vec_train_squared[i] = transpose(theta_vec) * (gp.x[:, i].^2)
-    end   
+
+    theta_vec, theta_vec_train_squared = PosteriorBounds.theta_vectors(x, gp_ex.kernel)
 
     # Test split_region
     x_avg = zeros(gp.dim)

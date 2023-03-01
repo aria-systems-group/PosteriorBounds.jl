@@ -34,16 +34,22 @@ using Test
     K_h = zeros(gp.nobs,1)
     mu_h = zeros(1,1)
 
+    # Setup minimal GP
+    gp_ex = PosteriorBounds.PosteriorGP(
+        gp.dim,
+        gp.nobs,
+        gp.x,
+        inv(gp.cK),
+        gp.alpha,
+        PosteriorBounds.SEKernel(gp.kernel.σ2, gp.kernel.ℓ2)
+    )
+
     # Test compute_z_intervals
     x_t = gp.x[:,1]
     x_L = [0.3, 0.3, 0.3]
     x_U = [0.5, 0.5, 0.5]
-    theta_vec = ones(gp.dim) * 1 ./ (2*gp.kernel.ℓ2)
-    theta_vec_train_squared = zeros(gp.nobs);
-    for i = 1:gp.nobs
-        @views theta_vec_train_squared[i] = transpose(theta_vec) * (gp.x[:, i].^2)
-    end   
-    
+
+    theta_vec, theta_vec_train_squared = PosteriorBounds.theta_vectors(x, gp_ex.kernel)
     z_interval = @views PosteriorBounds.compute_z_intervals(x_t, x_L, x_U, theta_vec, gp.dim, dx_L, dx_U)
     @test z_interval[1] ≈ 16.7870941340354 && z_interval[2] ≈ 18.346537704280646
 
@@ -69,14 +75,6 @@ using Test
     @test f_val ≈ 0.064512702840274
 
     # Test μ prediction
-    gp_ex = PosteriorBounds.PosteriorGP(
-        gp.dim,
-        gp.nobs,
-        gp.x,
-        inv(gp.cK),
-        gp.alpha,
-        PosteriorBounds.SEKernel(gp.kernel.σ2, gp.kernel.ℓ2)
-    )
     μ = PosteriorBounds.predict_μ!(mu_h, K_h, gp_ex, hcat(x_star_h))
     @test μ[1] ≈ 0.07346107351793149
 end

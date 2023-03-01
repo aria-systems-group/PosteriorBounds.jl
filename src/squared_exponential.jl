@@ -3,12 +3,36 @@ struct SEKernel <: Kernel
     ℓ2::Float64
 end
 
+"""
+Squared-exponential kernel explicit function.
+"""
 function kernel_fcn(x, y, kernel::SEKernel)
     nr = 0
     for i in eachindex(x)
        nr += (x[i] - y[i])^2 
     end
     return kernel.σ2*exp(-nr/(2. * kernel.ℓ2))
+end
+
+"""
+Calculate the theta vectors given a kernel and dataset.
+"""
+function theta_vectors(x, kernel::SEKernel)
+    return theta_vectors(x, kernel.ℓ2)
+end
+
+"""
+Calculate the theta vectors given a kernel and dataset.
+"""
+function theta_vectors(x, ℓ2::Float64)
+    dim = size(x,1)
+    nobs = size(x,2)
+    theta = ones(dim) * 1 ./ (2ℓ2)
+    theta_sq = zeros(nobs);
+    for i = 1:nobs
+        @views theta_sq[i] = transpose(theta) * (x[:, i].^2)
+    end   
+    return theta, theta_sq
 end
 
 "Computes the lower bound of the posterior mean function of a Gaussian process in an interval."
@@ -43,7 +67,6 @@ function calculate_components(α_train::Vector{Float64}, theta_vec_train_squared
     b_i_vec_sum = 0.
     C = 0.
     
-    length(α_train)
     for idx=1:length(α_train)  
         @views z_i_L, z_i_U = compute_z_intervals(x_train[:, idx], x_L, x_U, theta_vec, n, dx_L, dx_U)           
         a_i, b_i = linear_lower_bound(α_train[idx], z_i_L, z_i_U ) # Confirmed!     
