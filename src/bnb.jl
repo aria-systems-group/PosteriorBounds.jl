@@ -3,13 +3,15 @@ Compute an bounds on the posterior mean value in an interval. Defaults to boundi
 """
 function compute_μ_bounds_bnb_tmp(x, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=100, bound_epsilon=1e-2, max_flag=false, prealloc=nothing)
 
+    dim = size(x, 1)
+    nobs = size(x, 2)
     gp = PosteriorGP(
-        size(x, 1),
-        size(x, 2),
+        dim,
+        nobs,
         convert(Matrix, x),
-        Matrix{Float64}(undef, gp.nobs, gp.nobs),
-        Matrix{Float64}(undef, gp.nobs, gp.nobs),
-        UpperTriangular(zeros(gp.nobs, gp.nobs)),
+        Matrix{Float64}(undef, nobs, nobs), # uneeded for μ, empty placeholders
+        Matrix{Float64}(undef, nobs, nobs),
+        UpperTriangular(zeros(nobs, nobs)),
         convert(Matrix, K_inv),
         convert(Vector, alpha),
         SEKernel(σ2, ℓ2)
@@ -23,13 +25,15 @@ Compute an bounds on the posterior variance value in an interval.
 """
 function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=100, bound_epsilon=1e-2, max_flag=false, prealloc=nothing)
 
+    dim = size(x, 1)
+    nobs = size(x, 2)
     gp = PosteriorGP(
-        size(x, 1),
-        size(x, 2),
+        dim,
+        nobs,
         convert(Matrix, x),
-        K,
-        Matrix{Float64}(undef, gp.nobs, gp.nobs),
-        UpperTriangular(zeros(gp.nobs, gp.nobs)),
+        convert(Matrix, K),
+        Matrix{Float64}(undef, nobs, nobs),
+        UpperTriangular(zeros(nobs, nobs)),
         convert(Matrix, K_inv),
         convert(Vector, alpha),
         SEKernel(σ2, ℓ2)
