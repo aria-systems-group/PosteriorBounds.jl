@@ -2,6 +2,7 @@ using PosteriorBounds
 using GaussianProcesses
 using Random
 using Test
+using LinearAlgebra
 
 @testset "jl" begin
 
@@ -26,20 +27,29 @@ using Test
     x_test = [1.11, 1.11]
     K_h = zeros(gp.nobs,1)
     mu_h = zeros(1,1)
+
     gp_ex = PosteriorBounds.PosteriorGP(
         gp.dim,
         gp.nobs,
         gp.x,
+        gp.cK,
+        Matrix{Float64}(undef, gp.nobs, gp.nobs),
+        UpperTriangular(zeros(gp.nobs, gp.nobs)),
         inv(gp.cK),
         gp.alpha,
         PosteriorBounds.SEKernel(gp.kernel.σ2, gp.kernel.ℓ2)
     )
-    PosteriorBounds.predict_μ!(mu_h, K_h, gp_ex, hcat(x_test))
+    PosteriorBounds.compute_factors!(gp_ex)
+    PosteriorBounds.compute_μ!(mu_h, K_h, gp_ex, hcat(x_test))
+    σ2_h = Matrix{Float64}(undef, 1, 1) 
+    PosteriorBounds.compute_σ2!(σ2_h, gp_ex, hcat(x_test))
     @test mu_h[1] ≈ 0.9528022664167798
+    @test σ2_h[1] ≈ 0.014003315803827743
 
     # Compare to prediction from GaussianProcess.jl
-    μgp, _ = GaussianProcesses.predict_f(gp, hcat(x_test)) 
+    μgp, σgp = GaussianProcesses.predict_f(gp, hcat(x_test)) 
     @test mu_h[1] ≈ μgp[1]
+    @test σ2_h[1] ≈ σgp[1]
 
     # Preallocated arrays for memory savings 
     m_sub = gp.nobs
@@ -68,18 +78,25 @@ using Test
     @test new_regions[3] == [[0.3, 0.4], [0.4, 0.5]]
     @test new_regions[4] == [[0.4, 0.4], [0.5, 0.5]]
 
-    # # Test whole algorithm
+    # Test whole algorithm
     x_best, lbest, ubest = PosteriorBounds.compute_μ_bounds_bnb(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=100, bound_epsilon=1e-3, max_flag=false)
     @test x_best[1:2] == [0.3, 0.3]
     @test lbest <= ubest
     @test lbest ≈ 0.0600259356942785
     @test ubest ≈ 0.06058892550429269
 
+    tol = 1e-3
+    sx_best, slbest, subest = PosteriorBounds.compute_σ_ub_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec; bound_epsilon=tol, max_iterations=100)
+
     μgp, _ = predict_f(gp, hcat(x_best))
     @test μgp[1] ≈ ubest 
     @test μgp[1] > lbest
 
-    gp_ex.alpha[:] *= -1.
+    _, σ2gp = predict_f(gp, hcat(sx_best))
+    @test subest > σ2gp[1]
+    @test abs(subest - σ2gp[1]) < tol
+    @test slbest ≈ σ2gp[1]
+
     x_best, lbest, ubest = PosteriorBounds.compute_μ_bounds_bnb(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=100, bound_epsilon=1e-3, max_flag=true)
     @test x_best[1:2] == [0.5, 0.5]
     @test lbest ≈ 0.24400185880540715

@@ -37,28 +37,83 @@ end
 
 "Computes the lower bound of the posterior mean function of a Gaussian process in an interval."
 function compute_μ_lower_bound(gp, x_L, x_U, theta_vec_train_squared, theta_vec, 
-                               b_i_vec::Vector{Float64}, dx_L::Vector{Float64}, dx_U::Vector{Float64}, H::Vector{Float64}, f::Matrix{Float64}, x_star_h::Vector{Float64}, vec_h::Vector{Float64}, bi_x_h::Matrix{Float64}, α_h::Vector{Float64},
-                               K_h, mu_h;
-                               upper_flag=false)
+                               b_i_vec::Vector{Float64}, dx_L::Vector{Float64}, dx_U::Vector{Float64}, H::Vector{Float64}, f::Matrix{Float64}, x_star_h::Vector{Float64}, quad_vec::Vector{Float64}, bi_x_h::Matrix{Float64}, α_temp::Vector{Float64},
+                               K_h::Matrix{Float64}, mu_post::Matrix{Float64}; upper_flag=false)
     # Set minmax_factor to -1 if maximizing
     minmax_factor = upper_flag ? -1. : 1.
     x_train = gp.x # Confirmed
     n = size(x_train,1) # Dimension of input
-    α_h .= gp.alpha .* gp.kernel.σ2
+    α_temp .= gp.alpha .* gp.kernel.σ2 
+    α_temp *= minmax_factor
     
-    H, f, C, a_i_sum = calculate_components(α_h, theta_vec_train_squared, theta_vec, x_train, x_L, x_U, n, b_i_vec, dx_L, dx_U, H, f, bi_x_h)
-    f_val = separate_quadratic_program(H, f, x_L, x_U, x_star_h, vec_h)
+    H, f, C, a_i_sum = calculate_components(α_temp, theta_vec_train_squared, theta_vec, x_train, x_L, x_U, n, b_i_vec, dx_L, dx_U, H, f, bi_x_h)
+    f_val = separate_quadratic_program(H, f, x_L, x_U, x_star_h, quad_vec)
     x_mu_lb = hcat(x_star_h) # TODO: get around hcat?
     
     lb = minmax_factor*(f_val + C + a_i_sum)
-    predict_μ!(mu_h, K_h, gp, x_mu_lb)
-    ub = mu_h[1]*minmax_factor
+    compute_μ!(mu_post, K_h, gp, x_mu_lb)
+    ub = mu_post[1]
     
     if upper_flag
         return x_mu_lb, ub, lb
     else
         return x_mu_lb, lb, ub
     end
+end
+
+"Computes the upper bound of the posterior covariance function of a Gaussian process in an interval."
+function compute_σ_upper_bound(gp, x_L, x_U, R_inv, theta_vec_train_squared, theta_vec, 
+    b_i_vec::Vector{Float64}, dx_L::Vector{Float64}, dx_U::Vector{Float64}, H::Vector{Float64}, f::Matrix{Float64}, x_star_h::Vector{Float64}, z_i_vector::Matrix{Float64}, quad_vec::Vector{Float64}, bi_x_h::Matrix{Float64}, sigma_post::Matrix{Float64})
+    x_train = gp.x # Confirmed
+    m = gp.nobs # Confirmed
+    n = gp.dim # Dimension of input
+    
+    sigma_prior = gp.kernel.σ2 # confirmed
+
+    @views for idx=1:m
+        z_i_vector[idx, :] .= compute_z_intervals(x_train[:, idx], x_L, x_U, theta_vec, n, dx_L, dx_U) 
+    end
+    
+    a_i_sum = 0. 
+    b_i_vec[:] .= 0
+
+    # For each training point
+    for idx=1:(m::Int)
+
+        for subidx=1:(idx::Int)
+            z_il_L = z_i_vector[idx, 1] + z_i_vector[subidx, 1]
+            z_il_U = z_i_vector[idx, 2] + z_i_vector[subidx, 2] 
+            a_i, b_i = linear_lower_bound(R_inv[idx, subidx], z_il_L, z_il_U) 
+            b_i_vec[idx] += b_i 
+            if subidx < idx
+                a_i_sum += a_i
+                b_i_vec[subidx] += b_i
+            end
+            a_i_sum += a_i 
+        end
+    end
+
+    # Hessian object, with respect to each "flex" point
+    H .= 4*sum(b_i_vec)*theta_vec   # nx1 vector
+    mul!(bi_x_h, b_i_vec', x_train')
+    @tullio f[i] = -4*theta_vec[i] .* bi_x_h[i]  
+    C = 0.    
+    for idx=1:m
+       C += 2 * b_i_vec[idx] * theta_vec_train_squared[idx] 
+    end
+    f_val = separate_quadratic_program(H, f, x_L, x_U, x_star_h, quad_vec)
+    x_σ_ub = hcat(x_star_h) 
+    σ2_ub = sigma_prior*(1. - (f_val + C + a_i_sum))
+
+    if σ2_ub < 0
+        @warn "Something went wrong, using trivial σ upper bound"
+        σ_ub = sqrt(sigma_prior)
+    else
+        σ_ub = sqrt(σ2_ub)
+    end
+    
+    compute_σ2!(sigma_post, gp, x_σ_ub)
+    return x_σ_ub, sigma_post[1], σ2_ub
 end
 
 function calculate_components(α_train::Vector{Float64}, theta_vec_train_squared, theta_vec, x_train::Matrix{Float64}, x_L, x_U, n::Int, 
@@ -88,15 +143,15 @@ function compute_z_intervals(x_i, x_L, x_U, theta_vec, n::Int, dx_L::Vector{Floa
     z_i_L = 0.
     dx_L .= (x_i .- x_L).^2       # TODO: This still takes much time, improve further
     dx_U .= (x_i .- x_U).^2
+    z_i_U = 0.
     @inbounds for idx=1:n
         if x_L[idx] > x_i[idx] || x_i[idx] > x_U[idx]
             minval = dx_L[idx] < dx_U[idx] ? dx_L[idx] : dx_U[idx] 
             z_i_L += theta_vec[idx] * minval
         end
+        z_i_U += theta_vec[idx]*max(dx_L[idx], dx_U[idx])
     end
 
-    # TODO: Review what this max does, can we simplify it somehow, like put it in the loop above?
-    z_i_U = transpose(theta_vec) * max(dx_L, dx_U) # Vector with largest component 
     return z_i_L, z_i_U
 end
 
@@ -121,7 +176,7 @@ function linear_lower_bound(α::Float64, z_i_L::Float64, z_i_U::Float64)
 end
 
 "A simple quadratic program solver."
-function separate_quadratic_program(H::Vector{Float64}, f::Matrix{Float64}, x_L, x_U, x_star_h::Vector{Float64}, vec_h::Vector{Float64}; C=0.)
+function separate_quadratic_program(H::Vector{Float64}, f::Matrix{Float64}, x_L, x_U, x_star_h::Vector{Float64}, quad_vec::Vector{Float64}; C=0.)
 
     # By default, set the optimal points to the lower bounds
     x_star_h .= x_L
@@ -135,10 +190,10 @@ function separate_quadratic_program(H::Vector{Float64}, f::Matrix{Float64}, x_L,
             x_star_h[idx] = x_critic
             f_val_partial = calc_f_part(H[idx], f[idx], x_critic)
         else
-            vec_h[1] = calc_f_part(H[idx], f[idx], x_L[idx])
-            vec_h[2] = calc_f_part(H[idx], f[idx], x_U[idx])   
-            f_val_partial = minimum(vec_h)
-            if f_val_partial == vec_h[2]
+            quad_vec[1] = calc_f_part(H[idx], f[idx], x_L[idx])
+            quad_vec[2] = calc_f_part(H[idx], f[idx], x_U[idx])   
+            f_val_partial = minimum(quad_vec)
+            if f_val_partial == quad_vec[2]
                 x_star_h[idx] = x_U[idx]
             end
         end
