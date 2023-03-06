@@ -40,7 +40,7 @@ function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, thet
     )
     compute_factors!(gp)
 
-    return compute_σ_bounds_bnb(gp, convert(Vector, x_L), convert(Vector, x_U), convert(Vector,theta_vec_train_squared), convert(Vector, theta_vec); max_iterations=max_iterations, bound_epsilon=bound_epsilon, prealloc=prealloc)
+    return compute_σ_bounds(gp, convert(Vector, x_L), convert(Vector, x_U), convert(Vector,theta_vec_train_squared), convert(Vector, theta_vec); max_iterations=max_iterations, bound_epsilon=bound_epsilon, prealloc=prealloc)
 end
 
 struct Preallocs
@@ -160,7 +160,7 @@ function compute_μ_bounds_bnb(gp, x_L, x_U, theta_vec_train_squared, theta_vec;
     return x_best, lbest, ubest 
 end
 
-function compute_σ_ub_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing)
+function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing)
     
     # If no preallocation object is provided, preallocate
     image_prealloc = isnothing(prealloc) ? preallocate_matrices(gp.dim, gp.nobs) : prealloc
