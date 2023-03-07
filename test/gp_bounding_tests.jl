@@ -86,7 +86,8 @@ using LinearAlgebra
     @test ubest ≈ 0.06058892550429269
 
     tol = 1e-3
-    sx_best, slbest, subest = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec; bound_epsilon=tol, max_iterations=100)
+    cK_inv_scaled = PosteriorBounds.scale_cK_inv(gp_ex.cK, 1.0, 10e-3)
+    sx_best, slbest, subest = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; bound_epsilon=tol, max_iterations=100)
 
     μgp, _ = predict_f(gp, hcat(x_best))
     @test μgp[1] ≈ ubest 

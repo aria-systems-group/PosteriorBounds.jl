@@ -13,6 +13,17 @@ struct PosteriorGP
 end
 
 """
+Scale the cK inverse with unit prior variance.
+"""
+function scale_cK_inv(cK::AbstractMatrix, σ2_prior::Float64, σ2_noise::Float64)
+    return scale_cK_inv(convert(Matrix, cK), σ2_prior, σ2_noise)
+end
+
+function scale_cK_inv(cK::Matrix{Float64}, σ2_prior::Float64, σ2_noise::Float64)
+    return inv((cK - I*σ2_noise) / σ2_prior + I*σ2_noise)
+end
+
+"""
 Calculate the value of the posterior mean function asusming zero prior mean.
 """
 function compute_μ!(μ_h, K_h, x_train::Matrix{Float64}, kernel::Kernel, α::Vector{Float64}, x_pred)

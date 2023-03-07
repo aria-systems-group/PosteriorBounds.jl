@@ -23,7 +23,7 @@ end
 """
 Compute an bounds on the posterior variance value in an interval.
 """
-function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=100, bound_epsilon=1e-2, max_flag=false, prealloc=nothing)
+function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=100, bound_epsilon=1e-2, max_flag=false, prealloc=nothing)
 
     dim = size(x, 1)
     nobs = size(x, 2)
@@ -40,7 +40,7 @@ function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, thet
     )
     compute_factors!(gp)
 
-    return compute_σ_bounds(gp, convert(Vector, x_L), convert(Vector, x_U), convert(Vector,theta_vec_train_squared), convert(Vector, theta_vec); max_iterations=max_iterations, bound_epsilon=bound_epsilon, prealloc=prealloc)
+    return compute_σ_bounds(gp, convert(Vector, x_L), convert(Vector, x_U), convert(Vector,theta_vec_train_squared), convert(Vector, theta_vec), cK_inv_scaled; max_iterations=max_iterations, bound_epsilon=bound_epsilon, prealloc=prealloc)
 end
 
 struct Preallocs
@@ -160,7 +160,7 @@ function compute_μ_bounds_bnb(gp, x_L, x_U, theta_vec_train_squared, theta_vec;
     return x_best, lbest, ubest 
 end
 
-function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing)
+function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing)
     
     # If no preallocation object is provided, preallocate
     image_prealloc = isnothing(prealloc) ? preallocate_matrices(gp.dim, gp.nobs) : prealloc
@@ -176,17 +176,20 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec; max
     z_i_vector = image_prealloc.z_i_vector
     sigma_post = image_prealloc.sigma_post
 
-    x_best, lbest, ubest = compute_σ_upper_bound(gp, x_L, x_U, gp.K_inv, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post)
+    x_best, lbest, ubest = compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post)
 
-    candidates = [(x_L, x_U)]
+    candidates = [(x_L, x_U, Inf)]
     iterations = 0
 
     split_regions = nothing
     x_avg = zeros(gp.dim)
-   
     while !isempty(candidates) && iterations < max_iterations
         new_candidates = []
         for extent in candidates
+            if extent[3] < lbest
+                continue
+            end
+
             if isnothing(split_regions)
                 split_regions = split_region!(extent[1], extent[2], x_avg) 
             else
@@ -194,14 +197,15 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec; max
             end  
             
             for pair in split_regions
-                x_ub1, lb1, ub1 = compute_σ_upper_bound(gp, pair[1], pair[2], gp.K_inv, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post)
+                x_ub1, lb1, ub1 = compute_σ_upper_bound(gp, pair[1], pair[2], cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post)
+
                 if lb1 >= lbest
                     lbest = lb1
                     ubest = ub1
                     x_best = x_ub1
-                    push!(new_candidates,pair)
+                    push!(new_candidates, (pair[1], pair[2], lbest))
                 elseif ub1 > lbest
-                    push!(new_candidates, pair)
+                    push!(new_candidates, (pair[1], pair[2], lb1))
                 end
 
                 if norm(ubest - lbest) < bound_epsilon

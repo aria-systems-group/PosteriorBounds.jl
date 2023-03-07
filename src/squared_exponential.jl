@@ -62,7 +62,7 @@ function compute_μ_lower_bound(gp, x_L, x_U, theta_vec_train_squared, theta_vec
 end
 
 "Computes the upper bound of the posterior covariance function of a Gaussian process in an interval."
-function compute_σ_upper_bound(gp, x_L, x_U, R_inv, theta_vec_train_squared, theta_vec, 
+function compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squared, theta_vec, 
     b_i_vec::Vector{Float64}, dx_L::Vector{Float64}, dx_U::Vector{Float64}, H::Vector{Float64}, f::Matrix{Float64}, x_star_h::Vector{Float64}, z_i_vector::Matrix{Float64}, quad_vec::Vector{Float64}, bi_x_h::Matrix{Float64}, sigma_post::Matrix{Float64})
     x_train = gp.x # Confirmed
     m = gp.nobs # Confirmed
@@ -79,11 +79,10 @@ function compute_σ_upper_bound(gp, x_L, x_U, R_inv, theta_vec_train_squared, th
 
     # For each training point
     for idx=1:(m::Int)
-
         for subidx=1:(idx::Int)
             z_il_L = z_i_vector[idx, 1] + z_i_vector[subidx, 1]
             z_il_U = z_i_vector[idx, 2] + z_i_vector[subidx, 2] 
-            a_i, b_i = linear_lower_bound(R_inv[idx, subidx], z_il_L, z_il_U) 
+            a_i, b_i = linear_lower_bound(cK_inv_scaled[idx, subidx], z_il_L, z_il_U) 
             b_i_vec[idx] += b_i 
             if subidx < idx
                 a_i_sum += a_i
@@ -103,15 +102,12 @@ function compute_σ_upper_bound(gp, x_L, x_U, R_inv, theta_vec_train_squared, th
     end
     f_val = separate_quadratic_program(H, f, x_L, x_U, x_star_h, quad_vec)
     x_σ_ub = hcat(x_star_h) 
-    σ2_ub = sigma_prior*(1. - (f_val + C + a_i_sum))
+    σ2_ub = sigma_prior*(1.0 - (f_val + C + a_i_sum))
 
     if σ2_ub < 0
-        @warn "Something went wrong, using trivial σ upper bound"
-        σ_ub = sqrt(sigma_prior)
-    else
-        σ_ub = sqrt(σ2_ub)
-    end
-    
+        @warn "Something went wrong bounding σ, use the trivial σ upper bound!"
+    end 
+
     compute_σ2!(sigma_post, gp, x_σ_ub)
     return x_σ_ub, sigma_post[1], σ2_ub
 end
