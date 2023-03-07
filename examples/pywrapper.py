@@ -40,8 +40,8 @@ print(res)
 sig2_noise = 0.01
 K_inv_scaled = scale_cKinv(K, sig2, sig2_noise)
 
-compute_σ_bounds(x, K, K_inv, alpha, sig2, l2, x_L, x_U, theta_vec_train_squared, theta_vec, bound_epsilon=1e-3)
+compute_σ_bounds(x, K, K_inv, alpha, sig2, l2, x_L, x_U, theta_vec_train_squared, theta_vec, K_inv_scaled, bound_epsilon=1e-3)
 start = time.process_time()
-res = compute_σ_bounds(x, K, K_inv, alpha, sig2, l2, x_L, x_U, theta_vec_train_squared, theta_vec, bound_epsilon=1e-3)
+res = compute_σ_bounds(x, K, K_inv, alpha, sig2, l2, x_L, x_U, theta_vec_train_squared, theta_vec, K_inv_scaled, bound_epsilon=1e-3)
 print(time.process_time() - start)
 print(res)
