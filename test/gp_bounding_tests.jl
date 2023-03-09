@@ -93,6 +93,11 @@ using LinearAlgebra
     tol = 1e-3
     cK_inv_scaled = PosteriorBounds.scale_cK_inv(gp_ex.cK, 1.0, 10e-3)
     sx_best, slbest, subest = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; bound_epsilon=tol, max_iterations=100)
+    
+    # Testing out the point-wise bounds
+    A, B, C, D = PosteriorBounds.calculate_σ2_bound_values(gp_ex.K_inv, theta_vec, theta_vec_train_squared, 0.9x_best, 1.1x_best, gp_ex.x) 
+    res_σ1 = PosteriorBounds.σ2_bound_point(x_best, theta_vec, A, B, C, D) 
+    @test res_σ1 > slbest
 
     μgp, _ = predict_f(gp, hcat(x_best))
     @test μgp[1] ≈ ubest 

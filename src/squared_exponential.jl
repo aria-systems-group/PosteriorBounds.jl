@@ -174,6 +174,56 @@ function μ_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::
     return mimax_factor*(A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
 end
 
+"""
+Calculate values and vector for bounding σ over an interval.
+"""
+function calculate_σ2_bound_values(cK_inv_scaled::AbstractArray, θ_vec::AbstractArray, θx2_vec::AbstractArray, x_L::AbstractArray, x_U::AbstractArray, x_train::AbstractArray)
+    a_sum = 0
+    nobs = size(x_train, 2)
+    b_vec = zeros(nobs)
+    C = 0
+    
+    dim = length(θ_vec)
+    dx_L = zeros(dim)
+    dx_U = zeros(dim)
+
+    z_vec = zeros(nobs, 2)
+    @views for idx=1:nobs
+        z_vec[idx, :] .= compute_z_intervals(x_train[:, idx], x_L, x_U, θ_vec, dim, dx_L, dx_U) 
+    end
+
+    # For each training point
+    for idx=1:(nobs::Int)
+        for subidx=1:(idx::Int)
+            z_il_L = z_vec[idx, 1] + z_vec[subidx, 1]
+            z_il_U = z_vec[idx, 2] + z_vec[subidx, 2] 
+            a_i, b_i = linear_lower_bound(cK_inv_scaled[idx, subidx], z_il_L, z_il_U) 
+            a_sum += a_i 
+            b_vec[idx] += b_i 
+            if subidx < idx
+                a_sum += a_i
+                b_vec[subidx] += b_i
+            end
+        end
+    end
+    bx_vec = b_vec'*x_train'
+    D = 4* θ_vec .* bx_vec
+
+    C = 0.    
+    for idx=1:nobs
+       C += 2 * b_vec[idx] * θx2_vec[idx] 
+    end
+
+    return a_sum, 2*sum(b_vec), C, D 
+end
+
+"""
+Calculate bound on σ at a single point given necessary values and vectors 
+"""
+function σ2_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray; σ_prior=1.0)
+    return σ_prior - (A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
+end
+
 function compute_z_intervals(x_i, x_L, x_U, theta_vec, n::Int, dx_L::Vector{Float64}, dx_U::Vector{Float64})
     z_i_L = 0.
     dx_L .= (x_i .- x_L).^2       # TODO: This still takes much time, improve further
