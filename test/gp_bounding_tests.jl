@@ -85,6 +85,11 @@ using LinearAlgebra
     @test lbest ≈ 0.0600259356942785
     @test ubest ≈ 0.06058892550429269
 
+    # Testing out the point-wise bounds
+    A, B, C, D = PosteriorBounds.calculate_μ_bound_values(gp_ex.alpha, theta_vec, theta_vec_train_squared, 0.9x_best, 1.1x_best, gp_ex.x)
+    res1 = PosteriorBounds.μ_bound_point(x_best, theta_vec, A, B, C, D)
+    @test res1 < ubest
+
     tol = 1e-3
     cK_inv_scaled = PosteriorBounds.scale_cK_inv(gp_ex.cK, 1.0, 10e-3)
     sx_best, slbest, subest = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; bound_epsilon=tol, max_iterations=100)
@@ -102,4 +107,11 @@ using LinearAlgebra
     @test x_best[1:2] == [0.5, 0.5]
     @test lbest ≈ 0.24400185880540715
     @test ubest ≈ 0.24442227145437612
+
+    # Testing out the point-wise bounds
+    Ã, B̃, C̃, D̃ = PosteriorBounds.calculate_μ_bound_values(gp_ex.alpha, theta_vec, theta_vec_train_squared, 0.9x_best, 1.1x_best, gp_ex.x, upper_bound_flag=true)
+    res2 = PosteriorBounds.μ_bound_point(x_best, theta_vec, Ã, B̃, C̃, D̃, upper_bound_flag=true)
+    @test res2 > lbest 
 end
+
+
