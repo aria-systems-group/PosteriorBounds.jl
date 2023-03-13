@@ -170,15 +170,14 @@ function calculate_μ_bound_values(α_vec::AbstractArray, θ_vec::AbstractArray,
     bx_vec = b_vec'*x_train'
     D = 2* θ_vec .* bx_vec
 
-    return a_sum, b_vec_sum, C, D
+    return minmax_factor*a_sum, minmax_factor*b_vec_sum, minmax_factor*C, minmax_factor*D
 end
 
 """
 Calculate bound on μ at a single point given necessary values and vectors 
 """
-function μ_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray; upper_bound_flag=false)
-    mimax_factor = upper_bound_flag ? -1 : 1
-    return mimax_factor*(A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
+function μ_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray)
+    return A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1]
 end
 
 """
@@ -223,15 +222,14 @@ function calculate_σ2_bound_values(cK_inv_scaled::AbstractArray, θ_vec::Abstra
        C += 2 * b_vec[idx] * θx2_vec[idx] 
     end
 
-    return a_sum, 2*sum(b_vec), C, D 
+    return minmax_factor*a_sum, minmax_factor*2*sum(b_vec), minmax_factor*C, minmax_factor*D 
 end
 
 """
 Calculate bound on σ at a single point given necessary values and vectors 
 """
-function σ2_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray; σ_prior=1.0, min_flag=false)
-    minmax_factor = min_flag ? -1. : 1.
-    return σ_prior - minmax_factor*(A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
+function σ2_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray; σ_prior=1.0)
+    return σ_prior - (A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
 end
 
 function compute_z_intervals(x_i, x_L, x_U, theta_vec, n::Int, dx_L::Vector{Float64}, dx_U::Vector{Float64})

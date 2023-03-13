@@ -107,7 +107,7 @@ using LinearAlgebra
 
     # Test point-wise bounds
     A, B, C, D = PosteriorBounds.calculate_σ2_bound_values(gp_ex.K_inv, theta_vec', theta_vec_train_squared, 0.99sx_best_L, 1.01sx_best_L, gp_ex.x, min_flag=true) 
-    res_σ1_L = PosteriorBounds.σ2_bound_point(sx_best_L, theta_vec, A, B, C, D, min_flag=true) 
+    res_σ1_L = PosteriorBounds.σ2_bound_point(sx_best_L, theta_vec, A, B, C, D) 
     @test res_σ1_L < slbest_L
 
     μgp, _ = predict_f(gp, hcat(x_best))
@@ -126,7 +126,7 @@ using LinearAlgebra
 
     # Testing out the point-wise bounds
     Ã, B̃, C̃, D̃ = PosteriorBounds.calculate_μ_bound_values(gp_ex.alpha, theta_vec', theta_vec_train_squared, 0.9x_best, 1.1x_best, gp_ex.x, upper_bound_flag=true)
-    res2 = PosteriorBounds.μ_bound_point(x_best, theta_vec, Ã, B̃, C̃, D̃, upper_bound_flag=true)
+    res2 = PosteriorBounds.μ_bound_point(x_best, theta_vec, Ã, B̃, C̃, D̃)
     @test res2 > lbest 
 end
 
