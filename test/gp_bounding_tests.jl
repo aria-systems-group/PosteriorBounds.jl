@@ -89,15 +89,26 @@ using LinearAlgebra
     A, B, C, D = PosteriorBounds.calculate_μ_bound_values(gp_ex.alpha, theta_vec', theta_vec_train_squared, 0.9x_best, 1.1x_best, gp_ex.x)
     res1 = PosteriorBounds.μ_bound_point(x_best, theta_vec, A, B, C, D)
     @test res1 < ubest
+    @test size(D) == (1,2)
 
     tol = 1e-3
     cK_inv_scaled = PosteriorBounds.scale_cK_inv(gp_ex.cK, 1.0, 10e-3)
     sx_best, slbest, subest = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; bound_epsilon=tol, max_iterations=100)
-    
+    # Test the lower-bound of sigma 
+    sx_best_L, slbest_L, subest_L = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; bound_epsilon=tol, max_iterations=100, min_flag=true)
+
+    @test slbest_L < subest_L
+    @test abs(slbest_L - subest_L) <= tol
+
     # Testing out the point-wise bounds
     A, B, C, D = PosteriorBounds.calculate_σ2_bound_values(gp_ex.K_inv, theta_vec', theta_vec_train_squared, 0.9x_best, 1.1x_best, gp_ex.x) 
     res_σ1 = PosteriorBounds.σ2_bound_point(x_best, theta_vec, A, B, C, D) 
     @test res_σ1 > slbest
+
+    # Test point-wise bounds
+    A, B, C, D = PosteriorBounds.calculate_σ2_bound_values(gp_ex.K_inv, theta_vec', theta_vec_train_squared, 0.99sx_best_L, 1.01sx_best_L, gp_ex.x, min_flag=true) 
+    res_σ1_L = PosteriorBounds.σ2_bound_point(sx_best_L, theta_vec, A, B, C, D, min_flag=true) 
+    @test res_σ1_L < slbest_L
 
     μgp, _ = predict_f(gp, hcat(x_best))
     @test μgp[1] ≈ ubest 

@@ -160,7 +160,7 @@ function compute_μ_bounds_bnb(gp, x_L, x_U, theta_vec_train_squared, theta_vec;
     return x_best, lbest, ubest 
 end
 
-function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing)
+function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing, min_flag=false)
     
     # If no preallocation object is provided, preallocate
     image_prealloc = isnothing(prealloc) ? preallocate_matrices(gp.dim, gp.nobs) : prealloc
@@ -176,9 +176,15 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
     z_i_vector = image_prealloc.z_i_vector
     sigma_post = image_prealloc.sigma_post
 
-    x_best, lbest, ubest = compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post)
+    x_best, lbest, ubest = compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post, min_flag=min_flag)
+    if min_flag
+        temp = ubest
+        ubest = -lbest
+        lbest = -temp
+    end
 
-    candidates = [(x_L, x_U, Inf)]
+    minmax_factor = min_flag ? -1 : 1
+    candidates = [(x_L, x_U, minmax_factor*Inf)]
     iterations = 0
 
     split_regions = nothing
@@ -186,8 +192,16 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
     while !isempty(candidates) && iterations < max_iterations
         new_candidates = []
         for extent in candidates
-            if extent[3] < lbest
-                continue
+
+            # Skip candidates according to current best bound
+            if min_flag 
+                if extent[3] > lbest
+                    continue
+                end
+            else
+                if extent[3] < lbest
+                    continue
+                end
             end
 
             if isnothing(split_regions)
@@ -197,7 +211,13 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
             end  
             
             for pair in split_regions
-                x_ub1, lb1, ub1 = compute_σ_upper_bound(gp, pair[1], pair[2], cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post)
+                x_ub1, lb1, ub1 = compute_σ_upper_bound(gp, pair[1], pair[2], cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post, min_flag=min_flag)
+
+                if min_flag
+                    temp = ub1
+                    ub1 = -lb1
+                    lb1 = -temp
+                end
 
                 if lb1 >= lbest
                     lbest = lb1
@@ -207,15 +227,20 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
                 elseif ub1 > lbest
                     push!(new_candidates, (pair[1], pair[2], lb1))
                 end
-
-                if norm(ubest - lbest) < bound_epsilon
-                    return x_best, lbest, ubest
-                end
             end
         end
-        
+
+        if norm(ubest - lbest) < bound_epsilon
+            break
+        end
         candidates = new_candidates
         iterations += 1
+    end
+
+    if min_flag
+        temp = ubest
+        ubest = -lbest
+        lbest = -temp
     end
 
     return x_best, lbest, ubest
