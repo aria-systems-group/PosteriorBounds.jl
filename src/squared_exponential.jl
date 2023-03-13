@@ -63,7 +63,9 @@ end
 
 "Computes the upper bound of the posterior covariance function of a Gaussian process in an interval."
 function compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squared, theta_vec, 
-    b_i_vec::Vector{Float64}, dx_L::Vector{Float64}, dx_U::Vector{Float64}, H::Vector{Float64}, f::Matrix{Float64}, x_star_h::Vector{Float64}, z_i_vector::Matrix{Float64}, quad_vec::Vector{Float64}, bi_x_h::Matrix{Float64}, sigma_post::Matrix{Float64})
+    b_i_vec::Vector{Float64}, dx_L::Vector{Float64}, dx_U::Vector{Float64}, H::Vector{Float64}, f::Matrix{Float64}, x_star_h::Vector{Float64}, z_i_vector::Matrix{Float64}, quad_vec::Vector{Float64}, bi_x_h::Matrix{Float64}, sigma_post::Matrix{Float64}
+    ; min_flag=false)
+    minmax_factor = min_flag ? -1. : 1.
     x_train = gp.x # Confirmed
     m = gp.nobs # Confirmed
     n = gp.dim # Dimension of input
@@ -82,7 +84,7 @@ function compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squ
         for subidx=1:(idx::Int)
             z_il_L = z_i_vector[idx, 1] + z_i_vector[subidx, 1]
             z_il_U = z_i_vector[idx, 2] + z_i_vector[subidx, 2] 
-            a_i, b_i = linear_lower_bound(cK_inv_scaled[idx, subidx], z_il_L, z_il_U) 
+            a_i, b_i = linear_lower_bound(minmax_factor * cK_inv_scaled[idx, subidx], z_il_L, z_il_U) 
             b_i_vec[idx] += b_i 
             if subidx < idx
                 a_i_sum += a_i
@@ -102,14 +104,19 @@ function compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squ
     end
     f_val = separate_quadratic_program(H, f, x_L, x_U, x_star_h, quad_vec)
     x_σ_ub = hcat(x_star_h) 
-    σ2_ub = sigma_prior*(1.0 - (f_val + C + a_i_sum))
+    σ2_ub = sigma_prior*(1.0 - minmax_factor*(f_val + C + a_i_sum))
 
-    if σ2_ub < 0
+    if σ2_ub < 0 && !min_flag
         @warn "Something went wrong bounding σ, use the trivial σ upper bound!"
     end 
 
     compute_σ2!(sigma_post, gp, x_σ_ub)
-    return x_σ_ub, sigma_post[1], σ2_ub
+
+    if min_flag
+        return x_σ_ub, σ2_ub, sigma_post[1]
+    else
+        return x_σ_ub, sigma_post[1], σ2_ub
+    end
 end
 
 function calculate_components(α_train::Vector{Float64}, theta_vec_train_squared, theta_vec, x_train::Matrix{Float64}, x_L, x_U, n::Int, 
@@ -177,11 +184,13 @@ end
 """
 Calculate values and vector for bounding σ over an interval.
 """
-function calculate_σ2_bound_values(cK_inv_scaled::AbstractArray, θ_vec::AbstractArray, θx2_vec::AbstractArray, x_L::AbstractArray, x_U::AbstractArray, x_train::AbstractArray)
+function calculate_σ2_bound_values(cK_inv_scaled::AbstractArray, θ_vec::AbstractArray, θx2_vec::AbstractArray, x_L::AbstractArray, x_U::AbstractArray, x_train::AbstractArray; min_flag=false)
     a_sum = 0
     nobs = size(x_train, 2)
     b_vec = zeros(nobs)
     C = 0
+
+    minmax_factor = min_flag ? -1. : 1.
     
     dim = length(θ_vec)
     dx_L = zeros(dim)
@@ -197,7 +206,7 @@ function calculate_σ2_bound_values(cK_inv_scaled::AbstractArray, θ_vec::Abstra
         for subidx=1:(idx::Int)
             z_il_L = z_vec[idx, 1] + z_vec[subidx, 1]
             z_il_U = z_vec[idx, 2] + z_vec[subidx, 2] 
-            a_i, b_i = linear_lower_bound(cK_inv_scaled[idx, subidx], z_il_L, z_il_U) 
+            a_i, b_i = linear_lower_bound(minmax_factor * cK_inv_scaled[idx, subidx], z_il_L, z_il_U) 
             a_sum += a_i 
             b_vec[idx] += b_i 
             if subidx < idx
@@ -220,8 +229,9 @@ end
 """
 Calculate bound on σ at a single point given necessary values and vectors 
 """
-function σ2_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray; σ_prior=1.0)
-    return σ_prior - (A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
+function σ2_bound_point(x::AbstractArray, θ_vec::AbstractArray, A::Float64, B::Float64, C::Float64, D::AbstractArray; σ_prior=1.0, min_flag=false)
+    minmax_factor = min_flag ? -1. : 1.
+    return σ_prior - minmax_factor*(A + C + B*(x'*diagm(θ_vec)*x)[1] - (D*x)[1])
 end
 
 function compute_z_intervals(x_i, x_L, x_U, theta_vec, n::Int, dx_L::Vector{Float64}, dx_U::Vector{Float64})
