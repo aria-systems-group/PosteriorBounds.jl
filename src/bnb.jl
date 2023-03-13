@@ -23,7 +23,7 @@ end
 """
 Compute an bounds on the posterior variance value in an interval.
 """
-function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=100, bound_epsilon=1e-2, max_flag=false, prealloc=nothing)
+function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=100, bound_epsilon=1e-2, min_flag=false, prealloc=nothing)
 
     dim = size(x, 1)
     nobs = size(x, 2)
@@ -40,7 +40,7 @@ function compute_σ_bounds_bnb_tmp(x, K, K_inv, alpha, σ2, ℓ2, x_L, x_U, thet
     )
     compute_factors!(gp)
 
-    return compute_σ_bounds(gp, convert(Vector, x_L), convert(Vector, x_U), convert(Vector,theta_vec_train_squared), convert(Vector, theta_vec), cK_inv_scaled; max_iterations=max_iterations, bound_epsilon=bound_epsilon, prealloc=prealloc)
+    return compute_σ_bounds(gp, convert(Vector, x_L), convert(Vector, x_U), convert(Vector,theta_vec_train_squared), convert(Vector, theta_vec), cK_inv_scaled; max_iterations=max_iterations, bound_epsilon=bound_epsilon, prealloc=prealloc, min_flag=min_flag)
 end
 
 struct Preallocs
