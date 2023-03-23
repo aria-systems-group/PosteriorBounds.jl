@@ -176,7 +176,10 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
     z_i_vector = image_prealloc.z_i_vector
     sigma_post = image_prealloc.sigma_post
 
-    x_best, lbest, ubest = compute_σ_upper_bound(gp, x_L, x_U, cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post, min_flag=min_flag)
+    x_best = nothing
+    lbest = -Inf
+    ubest = Inf
+
     if min_flag
         temp = ubest
         ubest = -lbest
