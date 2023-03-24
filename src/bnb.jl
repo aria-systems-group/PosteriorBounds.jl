@@ -197,15 +197,15 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
         for extent in candidates
 
             # Skip candidates according to current best bound
-            if min_flag 
-                if extent[3] > lbest
-                    continue
-                end
-            else
-                if extent[3] < lbest
-                    continue
-                end
-            end
+            # if min_flag 
+            #     if extent[3] > lbest
+            #         continue
+            #     end
+            # else
+            #     if extent[3] < lbest
+            #         continue
+            #     end
+            # end
 
             if isnothing(split_regions)
                 split_regions = split_region!(extent[1], extent[2], x_avg) 
