@@ -161,7 +161,8 @@ function compute_μ_bounds_bnb(gp, x_L, x_U, theta_vec_train_squared, theta_vec;
 end
 
 function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; max_iterations=10, bound_epsilon=1e-4, prealloc=nothing, min_flag=false)
-    
+   
+    @info "This is a σ bounding debug message!"
     # If no preallocation object is provided, preallocate
     image_prealloc = isnothing(prealloc) ? preallocate_matrices(gp.dim, gp.nobs) : prealloc
         
