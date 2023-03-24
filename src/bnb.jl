@@ -216,6 +216,9 @@ function compute_σ_bounds(gp, x_L, x_U, theta_vec_train_squared, theta_vec, cK_
             for pair in split_regions
                 x_ub1, lb1, ub1 = compute_σ_upper_bound(gp, pair[1], pair[2], cK_inv_scaled, theta_vec_train_squared, theta_vec, b_i_vec, dx_L, dx_U, H, f, x_star_h, z_i_vector, vec_h, bi_x_h, sigma_post, min_flag=min_flag)
 
+                # temp lb fix 
+                f_s = 1. / (1 + 1/(iterations*5+1))
+                lb1 *= f_s
                 if min_flag
                     temp = ub1
                     ub1 = -lb1
