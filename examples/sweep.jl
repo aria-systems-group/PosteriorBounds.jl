@@ -31,6 +31,7 @@ gp_ex = PosteriorBounds.PosteriorGP(
     gp.alpha,
     PosteriorBounds.SEKernel(gp.kernel.σ2, gp.kernel.ℓ2)
 )
+PosteriorBounds.compute_factors!(gp_ex)
 
 # Test point-valued bounds
 x_t = gp.x[:, 1]
@@ -46,12 +47,15 @@ res1 = PosteriorBounds.μ_bound_point(x_test, theta_vec, A, B, C, D)
 
 # Testing out the point-wise bounds
 Ã, B̃, C̃, D̃ = PosteriorBounds.calculate_μ_bound_values(gp_ex.alpha, theta_vec, theta_vec_train_squared, x_L, x_U, gp_ex.x, upper_bound_flag=true)
-res2 = PosteriorBounds.μ_bound_point(x_test, theta_vec, Ã, B̃, C̃, D̃, upper_bound_flag=true)
+res2 = PosteriorBounds.μ_bound_point(x_test, theta_vec, Ã, B̃, C̃, D̃)
 
 # Testing out the point-wise bounds
 Aσ, Bσ, Cσ, Dσ = PosteriorBounds.calculate_σ2_bound_values(gp_ex.K_inv, theta_vec, theta_vec_train_squared, x_L, x_U, gp_ex.x)
 res_σ1 = PosteriorBounds.σ2_bound_point(x_test, theta_vec, Aσ, Bσ, Cσ, Dσ)
 
+tol = 1e-3
+cK_inv_scaled = PosteriorBounds.scale_cK_inv(gp_ex.cK, 1.0, 10e-3)
+sx_best, slbest, subest = PosteriorBounds.compute_σ_bounds(gp_ex, x_L, x_U, theta_vec_train_squared, theta_vec, cK_inv_scaled; bound_epsilon=tol, max_iterations=100)
 
 N_samps = 100
 μ_bound_norms = Vector{Float64}(undef, N_samps) 
@@ -60,7 +64,7 @@ N_samps = 100
 for i=1:N_samps
     xs = [rand(Uniform(x_L[1], x_U[1])); rand(Uniform(x_L[2], x_U[2])) ]
     μ_lb = PosteriorBounds.μ_bound_point(xs, theta_vec, A, B, C, D) 
-    μ_ub = PosteriorBounds.μ_bound_point(xs, theta_vec, Ã, B̃, C̃, D̃, upper_bound_flag=true)
+    μ_ub = PosteriorBounds.μ_bound_point(xs, theta_vec, Ã, B̃, C̃, D̃)
     σ2 = PosteriorBounds.σ2_bound_point(xs, theta_vec, Aσ, Bσ, Cσ, Dσ) 
     μ_bound_norms[i] = norm(μ_lb - μ_ub) 
     σ2_vals[i] = σ2
