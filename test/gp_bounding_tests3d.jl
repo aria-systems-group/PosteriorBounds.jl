@@ -43,7 +43,7 @@ using LinearAlgebra
         gp.cK,
         Matrix{Float64}(undef, gp.nobs, gp.nobs),
         UpperTriangular(zeros(gp.nobs, gp.nobs)),
-        inv(gp.cK),
+        Matrix(inv(gp.cK)),
         gp.alpha,
         PosteriorBounds.SEKernel(gp.kernel.σ2, gp.kernel.ℓ2)
     )
