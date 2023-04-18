@@ -7,7 +7,7 @@ struct PosteriorGP
     cK::Matrix{Float64}
     cKchol::Matrix{Float64}
     cKcholut::UpperTriangular{Float64, Matrix{Float64}}
-    K_inv::Matrix{Float64}
+    K_inv::Union{Matrix{Float64}, Symmetric{<:BlasReal}}
     alpha::Vector{Float64}
     kernel::Kernel
 end
